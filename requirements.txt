@@ -1,0 +1,11 @@
+# 公共依赖 common dependencies
+python-dotenv
+opencv-python
+fastapi
+openai
+
+# 舞蹈分析 Dance Analysis
+mediapipe==0.10.8
+uvicorn
+python-multipart
+moviepy
