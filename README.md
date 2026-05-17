@@ -9,7 +9,7 @@ It supports multiple languages (Chinese / English) and multiple LLM providers (O
 
 ## 🎬 demo video
 
-https://github.com/user-attachments/assets/dd269abf-abf9-4384-a0d6-60853d187bd5
+https://github.com/user-attachments/assets/a6cdf61e-398b-435e-b1d7-0b1d6395e2f6
 
 ---
 
