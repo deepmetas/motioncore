@@ -1,4 +1,3 @@
-```markdown
 # MotionCore · AI Dance Analysis
 
 MotionCore is a dance analysis system based on video pose estimation and Large Language Model (LLM).  
@@ -9,8 +8,7 @@ It supports multiple languages (Chinese / English) and multiple LLM providers (O
 
 ## 🎬 demo video
 
-<video src="https://github.com/user-attachments/assets/5e08d1fc-d04f-4354-b4ad-cfb2fbf8b0a0" controls width="100%"></video>
-https://github.com/user-attachments/assets/5e08d1fc-d04f-4354-b4ad-cfb2fbf8b0a0
+https://github.com/user-attachments/assets/dd269abf-abf9-4384-a0d6-60853d187bd5
 
 ---
 
@@ -29,15 +27,15 @@ https://github.com/user-attachments/assets/5e08d1fc-d04f-4354-b4ad-cfb2fbf8b0a0
 
 ## 🧰 Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | HTML5, CSS3, JavaScript (Vanilla) |
-| Backend | FastAPI (Python) |
-| Pose Estimation | MediaPipe Pose |
-| Audio Alignment | MoviePy + NumPy |
-| LLM Integration | OpenAI SDK (compatible with DeepSeek / Ollama) |
-| Computer Vision | OpenCV, Ultralytics (YOLO) |
-| Environment Variables | python-dotenv |
+| Layer                 | Technology                                     |
+| --------------------- | ---------------------------------------------- |
+| Frontend              | HTML5, CSS3, JavaScript (Vanilla)              |
+| Backend               | FastAPI (Python)                               |
+| Pose Estimation       | MediaPipe Pose                                 |
+| Audio Alignment       | MoviePy + NumPy                                |
+| LLM Integration       | OpenAI SDK (compatible with DeepSeek / Ollama) |
+| Computer Vision       | OpenCV, Ultralytics (YOLO)                     |
+| Environment Variables | python-dotenv                                  |
 
 ---
 
