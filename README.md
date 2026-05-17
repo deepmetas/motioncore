@@ -8,7 +8,10 @@ It supports multiple languages (Chinese / English) and multiple LLM providers (O
 ---
 
 ## 🎬 demo video
+
+<video src="https://github.com/user-attachments/assets/5e08d1fc-d04f-4354-b4ad-cfb2fbf8b0a0" controls width="100%"></video>
 https://github.com/user-attachments/assets/5e08d1fc-d04f-4354-b4ad-cfb2fbf8b0a0
+
 ---
 
 ## ✨ Features
