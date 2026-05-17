@@ -13,6 +13,10 @@ It supports multiple languages (Chinese / English) and multiple LLM providers (O
 https://github.com/user-attachments/assets/5e08d1fc-d04f-4354-b4ad-cfb2fbf8b0a0
 
 
+
+https://github.com/user-attachments/assets/17fb303f-2b61-48b7-bff5-9a01973a77d0
+
+
 ---
 
 ## ✨ Features
