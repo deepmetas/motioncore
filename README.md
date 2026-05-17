@@ -9,7 +9,7 @@ It supports multiple languages (Chinese / English) and multiple LLM providers (O
 
 ## 🎬 demo video
 
-[▶ Click to watch the dance analysis demonstration](https://github.com/deepmetas/motioncore/releases/download/v1.0.0/video1.mp4)
+https://github.com/deepmetas/motioncore/releases/download/v1.0.0/video1.mp4
 
 ---
 
