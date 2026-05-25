@@ -8,7 +8,7 @@ It supports multiple languages (Chinese / English) and multiple LLM providers (O
 
 ## 🎬 demo video
 
-https://github.com/user-attachments/assets/23071d8d-7bd0-478c-a391-2df9507fb165
+https://github.com/user-attachments/assets/dd269abf-abf9-4384-a0d6-60853d187bd5
 
 ---
 
@@ -86,6 +86,7 @@ DEEPSEEK_MODEL=deepseek-v4-pro
 
 # Gemma 4 (or other OpenAI compatible models, such as running Gemma through Ollama)
 # You need to provide base_url and api_key (if available)
+# Gemma 4
 GEMMA_API_KEY=ollama
 GEMMA_BASE_URL=http://localhost:11434/v1
 GEMMA_MODEL=gemma2:9b
@@ -98,6 +99,13 @@ python main.py
 ```
 
 Visit `http://127.0.0.1:8000` to use the dance analysis tool.
+
+### 6. If the upper and lower lengths exceed the limit, Find the constant definition starting with web/api/app.py (around line 20), modify:
+
+```bash
+TARGET_OUTPUT_FPS = 5          # Reduce frame rate to 5 FPS and maintain key action frames
+COORD_DECIMALS = 1             # Coordinate accuracy reduced to one decimal place (0.1)
+```
 
 ---
 
