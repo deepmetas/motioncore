@@ -12,22 +12,24 @@ import mediapipe as mp
 from fastapi import FastAPI, File, UploadFile, Request
 from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from dotenv import load_dotenv
 
-# 项目根目录
+# ★ 加载 .env 文件，确保环境变量可用
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
+
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 app = FastAPI()
 
-# 静态文件挂载 -> web/h5
 H5_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'h5')
 app.mount("/static", StaticFiles(directory=H5_DIR), name="static")
 
-# outputs 目录
 OUTPUTS_DIR = os.path.join(ROOT_DIR, "outputs")
 os.makedirs(OUTPUTS_DIR, exist_ok=True)
 app.mount("/outputs", StaticFiles(directory=OUTPUTS_DIR), name="outputs")
 
-# ==================== 参数 ====================
+app.mount("/demo", StaticFiles(directory="demo"), name="demo")
+
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 
@@ -37,13 +39,17 @@ DETECTION_CONF = 0.6
 TRACKING_CONF = 0.6
 CENTER_LOCK_THRESHOLD = 0.15
 RESET_AFTER_FRAMES = 10
-TARGET_OUTPUT_FPS = 12
-COORD_DECIMALS = 2
+
+# ========== 根据模型自动选择压缩参数 ==========
+_current_provider = os.getenv("LLM_PROVIDER", "openai").lower()
+_default_fps = 5 if _current_provider == "gemma4" else 12
+_default_coord = 1 if _current_provider == "gemma4" else 2
+TARGET_OUTPUT_FPS = int(os.getenv("TARGET_OUTPUT_FPS", str(_default_fps)))
+COORD_DECIMALS = int(os.getenv("COORD_DECIMALS", str(_default_coord)))
 VISIBILITY_DECIMALS = 1
 
 tasks = {}
 
-# ==================== 工具函数 ====================
 def create_pose():
     return mp_pose.Pose(
         static_image_mode=False,
@@ -85,11 +91,14 @@ def compress_pose_sequence(raw_frames, raw_fps):
                 new_frame["landmarks"].append(new_lm)
             compressed.append(new_frame)
     new_fps = raw_fps / step
+    max_frames = int(os.getenv("MAX_POSE_FRAMES", "200"))
+    if len(compressed) > max_frames:
+        step2 = len(compressed) / max_frames
+        compressed = [compressed[int(i * step2)] for i in range(max_frames)]
+        new_fps = new_fps * (max_frames / len(compressed))
     return compressed, new_fps
 
-# ==================== 提示词动态加载 ====================
 def load_prompt(lang: str):
-    """根据语言加载对应的提示词模块，默认中文"""
     try:
         if lang == "en":
             module = importlib.import_module("web.api.prompts_en")
@@ -97,11 +106,11 @@ def load_prompt(lang: str):
             module = importlib.import_module("web.api.prompts_zh")
         return module.ANALYSIS_PROMPT
     except Exception:
-        # 回退到中文
         import web.api.prompts_zh as prompts
         return prompts.ANALYSIS_PROMPT
 
 # ==================== API 端点 ====================
+
 @app.post("/upload")
 async def upload_video(file: UploadFile = File(...)):
     task_id = str(uuid.uuid4())
@@ -125,7 +134,8 @@ async def upload_video(file: UploadFile = File(...)):
         "fps": fps,
         "target_center": None,
         "lost_frames": 0,
-        "video_filename": file.filename
+        "video_filename": file.filename,
+        "task_id": task_id
     }
     return {"task_id": task_id, "total_frames": max(0, total_frames)}
 
@@ -254,12 +264,11 @@ async def analyze_stream(request: Request):
     task_id1 = data.get("task_id1", "")
     task_id2 = data.get("task_id2", "")
     user_text = data.get("user_text", "")
-    lang = data.get("lang", "zh")           # 语言参数
+    lang = data.get("lang", "zh")
 
     if not task_id1 or task_id1 not in tasks:
         return JSONResponse({"error": "至少需要一个有效的任务ID"}, status_code=400)
 
-    # 加载对应语言的提示词
     ANALYSIS_PROMPT = load_prompt(lang)
 
     def build_compact_json(task):
@@ -270,44 +279,60 @@ async def analyze_stream(request: Request):
             "pose_sequence": task.get("keypoints_data", [])
         }, ensure_ascii=False, separators=(',', ':'))
 
-    json1 = build_compact_json(tasks[task_id1])
-    json2 = build_compact_json(tasks[task_id2]) if task_id2 and task_id2 in tasks else json.dumps([], ensure_ascii=False, separators=(',', ':'))
-
-    prompt = ANALYSIS_PROMPT.replace('{video1_json}', json1).replace('{video2_json}', json2).replace('{user_text}', user_text)
-
-    async def save_prompt():
-        filename = f"对话_{task_id1}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-        filepath = os.path.join(OUTPUTS_DIR, filename)
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(prompt)
-    asyncio.create_task(save_prompt())
-
     async def generate():
-        from web.api.client import analyze_videos_stream
-        try:
-            # 传入 lang 参数，控制模型输出语言
-            for chunk in analyze_videos_stream(json1, json2, ANALYSIS_PROMPT, user_text=user_text, lang=lang):
-                if await request.is_disconnected():
-                    break
-                yield f"data: {json.dumps({'text': chunk})}\n\n"
-            yield "data: [DONE]\n\n"
-        except Exception as e:
-            print("流式分析出错：")
-            traceback.print_exc()
-            yield f"data: {json.dumps({'text': f'分析失败：{str(e)}'})}\n\n"
-            yield "data: [DONE]\n\n"
+        provider = os.getenv("LLM_PROVIDER", "openai").lower()
+        if provider == "gemma4":
+            from web.api.client import analyze_agent_stream
+            task1 = tasks[task_id1]
+            task2 = tasks[task_id2] if task_id2 and task_id2 in tasks else {
+                "video_filename": "无", "keypoints_data": [], "fps": 0, "task_id": "none"
+            }
+            gen, log_lines = analyze_agent_stream(task1, task2, ANALYSIS_PROMPT, user_text=user_text, lang=lang)
+            try:
+                for chunk in gen:
+                    if await request.is_disconnected():
+                        break
+                    yield f"data: {json.dumps({'text': chunk})}\n\n"
+                yield "data: [DONE]\n\n"
+            except Exception as e:
+                traceback.print_exc()
+                yield f"data: {json.dumps({'text': f'分析失败：{str(e)}'})}\n\n"
+                yield "data: [DONE]\n\n"
+            finally:
+                try:
+                    log_path = os.path.join(OUTPUTS_DIR, f"agent_log_{task_id1}.txt")
+                    with open(log_path, "w", encoding="utf-8") as f:
+                        f.write("\n".join(log_lines))
+                except:
+                    pass
+        else:
+            from web.api.client import analyze_videos_stream
+            json1 = build_compact_json(tasks[task_id1])
+            json2 = build_compact_json(tasks[task_id2]) if task_id2 and task_id2 in tasks else "[]"
+            prompt = ANALYSIS_PROMPT.replace('{video1_json}', json1).replace('{video2_json}', json2).replace('{user_text}', user_text)
+
+            async def save_prompt():
+                filename = f"对话_{task_id1}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                filepath = os.path.join(OUTPUTS_DIR, filename)
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(prompt)
+            asyncio.create_task(save_prompt())
+
+            try:
+                for chunk in analyze_videos_stream(json1, json2, ANALYSIS_PROMPT, user_text=user_text, lang=lang):
+                    if await request.is_disconnected():
+                        break
+                    yield f"data: {json.dumps({'text': chunk})}\n\n"
+                yield "data: [DONE]\n\n"
+            except Exception as e:
+                traceback.print_exc()
+                yield f"data: {json.dumps({'text': f'分析失败：{str(e)}'})}\n\n"
+                yield "data: [DONE]\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
-# ==================== 音频对齐端点 ====================
 @app.get("/audio-offset")
 async def audio_offset(task_id1: str, task_id2: str):
-    """
-    计算两个视频的音频偏移（秒）。
-    task_id1: 参考视频的 task_id（视频A）
-    task_id2: 用户视频的 task_id（视频B）
-    返回值: {"offset": float} ，正数表示 video2 滞后于 video1。
-    """
     from moviepy import VideoFileClip
     import numpy as np
 

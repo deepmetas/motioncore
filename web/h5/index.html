@@ -891,20 +891,28 @@
     // 页面加载完成时初始化语言
     updateLangUI();
 
-    // ==================== 自动加载演示视频 ====================
+    // ==================== 自动加载演示视频（从 ./demo/ 目录，禁止缓存） ====================
     (async function loadDemos() {
         if (selectedFiles.length > 0) return;
-        try {
-            const demoFiles = ['demo1.mp4', 'demo2.mp4'];
-            for (const name of demoFiles) {
-                const res = await fetch(`outputs/${name}`);
+        const demoFiles = ['demo1.mp4', 'demo2.mp4'];
+        for (const name of demoFiles) {
+            try {
+                const headRes = await fetch(`demo/${name}`, { 
+                    method: 'HEAD',
+                    cache: 'no-store'
+                });
+                if (!headRes.ok) continue;
+                const res = await fetch(`demo/${name}`, {
+                    cache: 'no-store',
+                    headers: { 'Cache-Control': 'no-cache' }
+                });
                 if (!res.ok) continue;
                 const blob = await res.blob();
                 const file = new File([blob], name, { type: 'video/mp4' });
                 addFileToPreview(file);
+            } catch (e) {
+                // 忽略错误
             }
-        } catch (e) {
-            console.error('加载演示视频失败:', e);
         }
     })();
 </script>
